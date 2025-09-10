@@ -6,9 +6,9 @@ export interface Player {
 export interface TimeSlot {
   id: string;
   time: string;
-  list_name?: string;
-  day_of_week: string;
+  listname?: string;
+  dayofweek: string;
   players: Player[];
-  max_players: number;
+  maxplayers: number;
   created_at?: string;
 }

@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isAddingSlot, setIsAddingSlot] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   // Carrega as listas do banco ao iniciar
   useEffect(() => {
@@ -21,14 +22,22 @@ const App: React.FC = () => {
         
         if (error) {
           console.error('Supabase error details:', error);
+          setIsOfflineMode(true);
           if (error.code === 'PGRST116') {
-            setErrorMsg('Tabela "timeslots" não encontrada. Execute o script SQL no Supabase primeiro.');
+            setErrorMsg('Modo Offline: Tabela não encontrada no Supabase. Você pode criar listas localmente.');
           } else if (error.code === '42501') {
-            setErrorMsg('Permissões insuficientes. Verifique as políticas RLS no Supabase.');
+            setErrorMsg('Modo Offline: Permissões insuficientes no Supabase. Você pode criar listas localmente.');
           } else {
-            setErrorMsg(`Erro do Supabase: ${error.message} (${error.code})`);
+            setErrorMsg(`Modo Offline: ${error.message}. Você pode criar listas localmente.`);
+          }
+          
+          // Carrega dados locais se existirem
+          const localData = localStorage.getItem('timeSlots');
+          if (localData) {
+            setTimeSlots(JSON.parse(localData));
           }
         } else {
+          setIsOfflineMode(false);
           setErrorMsg(null);
           setTimeSlots(data || []);
           if (!data || data.length === 0) {
@@ -37,18 +46,34 @@ const App: React.FC = () => {
         }
       } catch (err) {
         console.error('Erro de rede ou configuração:', err);
-        setErrorMsg('Erro de conexão. Verifique sua internet e as configurações do Supabase.');
+        setIsOfflineMode(true);
+        setErrorMsg('Modo Offline: Erro de conexão. Você pode criar listas localmente.');
+        
+        // Carrega dados locais se existirem
+        const localData = localStorage.getItem('timeSlots');
+        if (localData) {
+          setTimeSlots(JSON.parse(localData));
+        }
       }
     };
     fetchTimeSlots();
   }, []);
 
   const handleAddPlayer = useCallback(async (timeSlotId: string, playerName: string) => {
-    // Primeiro atualiza o estado local
     const slot = timeSlots.find(s => s.id === timeSlotId);
-    if (slot && slot.players.length < slot.max_players) {
+    if (slot && slot.players.length < slot.maxplayers) {
       const newPlayer: Player = { id: Date.now().toString(), name: playerName };
       const updatedPlayers = [...slot.players, newPlayer];
+      
+      if (isOfflineMode) {
+        // Modo offline
+        const updatedSlots = timeSlots.map(slot => 
+          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        );
+        setTimeSlots(updatedSlots);
+        localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+        return;
+      }
       
       // Atualiza no Supabase
       const { error } = await supabase.from('timeslots').update({ players: updatedPlayers }).eq('id', timeSlotId);
@@ -59,15 +84,33 @@ const App: React.FC = () => {
             slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
           )
         );
+      } else {
+        console.error('Erro ao adicionar jogador:', error);
+        // Fallback para modo offline
+        const updatedSlots = timeSlots.map(slot => 
+          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        );
+        setTimeSlots(updatedSlots);
+        localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
       }
     }
-  }, [timeSlots]);
+  }, [timeSlots, isOfflineMode]);
 
   const handleRemovePlayer = useCallback(async (timeSlotId: string, playerId: string) => {
     const slot = timeSlots.find(s => s.id === timeSlotId);
     if (slot) {
       const updatedPlayers = slot.players.filter(player => player.id !== playerId);
       
+      if (isOfflineMode) {
+        // Modo offline
+        const updatedSlots = timeSlots.map(slot => 
+          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        );
+        setTimeSlots(updatedSlots);
+        localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+        return;
+      }
+      
       // Atualiza no Supabase
       const { error } = await supabase.from('timeslots').update({ players: updatedPlayers }).eq('id', timeSlotId);
       
@@ -77,44 +120,155 @@ const App: React.FC = () => {
             slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
           )
         );
+      } else {
+        console.error('Erro ao remover jogador:', error);
+        // Fallback para modo offline
+        const updatedSlots = timeSlots.map(slot => 
+          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        );
+        setTimeSlots(updatedSlots);
+        localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
       }
     }
-  }, [timeSlots]);
+  }, [timeSlots, isOfflineMode]);
 
   const handleCreateTimeSlot = useCallback(async (time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
-    const { error } = await supabase.from('timeslots').insert([{ 
-      time, 
-      list_name: listName, 
-      max_players: maxPlayers, 
-      day_of_week: dayOfWeek,
-      players: []
-    }]);
-    if (!error) {
-      const { data } = await supabase.from('timeslots').select('*');
-      setTimeSlots(data || []);
+    if (isOfflineMode) {
+      // Modo offline - salva localmente
+      console.log('Criando lista em modo offline:', { time, listName, maxPlayers, dayOfWeek });
+      
+      const newTimeSlot: TimeSlot = {
+        id: crypto.randomUUID(),
+        time,
+        listname: listName,
+        maxplayers: maxPlayers,
+        dayofweek: dayOfWeek,
+        players: [],
+        created_at: new Date().toISOString()
+      };
+      
+      const updatedSlots = [...timeSlots, newTimeSlot];
+      setTimeSlots(updatedSlots);
+      localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+      setIsAddingSlot(false);
+      setErrorMsg('Lista criada em modo offline. Os dados serão perdidos ao recarregar a página.');
+      return;
+    }
+    
+    try {
+      console.log('Criando lista com dados:', { time, listName, maxPlayers, dayOfWeek });
+      
+      const { data, error } = await supabase.from('timeslots').insert([{ 
+        time, 
+        listname: listName, 
+        maxplayers: maxPlayers, 
+        dayofweek: dayOfWeek,
+        players: []
+      }]).select();
+      
+      if (error) {
+        console.error('Erro ao criar lista:', error);
+        setErrorMsg(`Erro ao criar lista: ${error.message}`);
+        return;
+      }
+      
+      console.log('Lista criada com sucesso:', data);
+      
+      // Recarrega todos os dados
+      const { data: allData, error: fetchError } = await supabase.from('timeslots').select('*');
+      if (fetchError) {
+        console.error('Erro ao recarregar dados:', fetchError);
+        setErrorMsg(`Lista criada, mas erro ao recarregar: ${fetchError.message}`);
+      } else {
+        setTimeSlots(allData || []);
+        setErrorMsg(null);
+      }
+      
+      setIsAddingSlot(false);
+    } catch (err) {
+      console.error('Erro geral ao criar lista:', err);
+      setErrorMsg('Erro de rede ou configuração. Ativando modo offline...');
+      setIsOfflineMode(true);
+      
+      // Fallback para modo offline
+      const newTimeSlot: TimeSlot = {
+        id: crypto.randomUUID(),
+        time,
+        listname: listName,
+        maxplayers: maxPlayers,
+        dayofweek: dayOfWeek,
+        players: [],
+        created_at: new Date().toISOString()
+      };
+      
+      const updatedSlots = [...timeSlots, newTimeSlot];
+      setTimeSlots(updatedSlots);
+      localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
       setIsAddingSlot(false);
     }
-  }, []);
+  }, [isOfflineMode, timeSlots]);
 
   const handleRemoveTimeSlot = useCallback(async (timeSlotId: string) => {
-    await supabase.from('timeslots').delete().eq('id', timeSlotId);
-    const { data } = await supabase.from('timeslots').select('*');
-    setTimeSlots(data || []);
-  }, []);
+    if (isOfflineMode) {
+      // Modo offline
+      const updatedSlots = timeSlots.filter(slot => slot.id !== timeSlotId);
+      setTimeSlots(updatedSlots);
+      localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.from('timeslots').delete().eq('id', timeSlotId);
+      if (!error) {
+        const { data } = await supabase.from('timeslots').select('*');
+        setTimeSlots(data || []);
+      } else {
+        console.error('Erro ao remover lista:', error);
+        // Fallback para modo offline
+        const updatedSlots = timeSlots.filter(slot => slot.id !== timeSlotId);
+        setTimeSlots(updatedSlots);
+        localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+      }
+    } catch (err) {
+      console.error('Erro geral ao remover lista:', err);
+      // Fallback para modo offline
+      const updatedSlots = timeSlots.filter(slot => slot.id !== timeSlotId);
+      setTimeSlots(updatedSlots);
+      localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+    }
+  }, [isOfflineMode, timeSlots]);
 
   const handleUpdateListName = useCallback(async (timeSlotId: string, newName: string) => {
-    const { error } = await supabase.from('timeslots').update({ list_name: newName }).eq('id', timeSlotId);
+    if (isOfflineMode) {
+      // Modo offline
+      const updatedSlots = timeSlots.map(slot => 
+        slot.id === timeSlotId ? { ...slot, listname: newName } : slot
+      );
+      setTimeSlots(updatedSlots);
+      localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+      return;
+    }
+    
+    const { error } = await supabase.from('timeslots').update({ listname: newName }).eq('id', timeSlotId);
     if (!error) {
       setTimeSlots(prevSlots => 
         prevSlots.map(slot => 
-          slot.id === timeSlotId ? { ...slot, list_name: newName } : slot
+          slot.id === timeSlotId ? { ...slot, listname: newName } : slot
         )
       );
+    } else {
+      console.error('Erro ao atualizar nome:', error);
+      // Fallback para modo offline
+      const updatedSlots = timeSlots.map(slot => 
+        slot.id === timeSlotId ? { ...slot, listname: newName } : slot
+      );
+      setTimeSlots(updatedSlots);
+      localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
     }
-  }, []);
+  }, [isOfflineMode, timeSlots]);
 
   const groupedSlots = timeSlots.reduce((acc, slot) => {
-    const day = slot.day_of_week;
+    const day = slot.dayofweek;
     if (!acc[day]) {
       acc[day] = [];
     }
@@ -132,11 +286,31 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-900 text-white font-sans">
       <div className="container mx-auto px-4 py-8">
         <Header />
+        
+        {/* Indicador de modo offline */}
+        {isOfflineMode && (
+          <div className="mb-4 p-3 bg-yellow-900/50 border border-yellow-600 rounded-lg">
+            <div className="flex items-center">
+              <span className="text-yellow-400 font-semibold">🔒 Modo Offline</span>
+              <span className="ml-2 text-yellow-200">Dados salvos localmente</span>
+            </div>
+          </div>
+        )}
+        
         <main className="mt-8">
           {errorMsg ? (
-            <div className="text-center text-red-400 mt-8 py-16 bg-slate-800/50 rounded-lg border-2 border-dashed border-red-700">
+            <div className={`text-center mt-8 py-16 rounded-lg border-2 border-dashed ${
+              isOfflineMode 
+                ? 'text-yellow-400 bg-yellow-900/20 border-yellow-700' 
+                : 'text-red-400 bg-slate-800/50 border-red-700'
+            }`}>
               <h3 className="text-xl font-semibold">{errorMsg}</h3>
-              <p className="mt-2">Verifique o console do navegador para detalhes.</p>
+              <p className="mt-2">
+                {isOfflineMode 
+                  ? "Suas listas funcionarão normalmente, mas os dados não serão salvos permanentemente."
+                  : "Verifique o console do navegador para detalhes."
+                }
+              </p>
             </div>
           ) : timeSlots.length > 0 ? (
             <div className="space-y-12">
