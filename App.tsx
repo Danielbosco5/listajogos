@@ -5,9 +5,7 @@ import AddTimeSlotForm from './components/AddTimeSlotForm';
 import type { Player, TimeSlot } from './types';
 import Modal from './components/Modal';
 import PlusIcon from './components/icons/PlusIcon';
-import { supabase, type TimeSlotTable } from './lib/supabase';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
@@ -17,51 +15,78 @@ const App: React.FC = () => {
   // Carrega as listas do banco ao iniciar
   useEffect(() => {
     const fetchTimeSlots = async () => {
-      const { data, error } = await supabase.from('timeslots').select('*');
-      console.log('Supabase data:', data, 'Error:', error);
-      if (error) {
-        setErrorMsg('Erro ao conectar ao banco Supabase. Verifique as variáveis de ambiente e a tabela.');
-      } else if (!data || data.length === 0) {
-        setErrorMsg('Nenhuma lista encontrada. Crie uma nova lista para começar.');
-      } else {
-        setErrorMsg(null);
-        setTimeSlots(data);
+      try {
+        const { data, error } = await supabase.from('timeslots').select('*');
+        console.log('Supabase response:', { data, error });
+        
+        if (error) {
+          console.error('Supabase error details:', error);
+          if (error.code === 'PGRST116') {
+            setErrorMsg('Tabela "timeslots" não encontrada. Execute o script SQL no Supabase primeiro.');
+          } else if (error.code === '42501') {
+            setErrorMsg('Permissões insuficientes. Verifique as políticas RLS no Supabase.');
+          } else {
+            setErrorMsg(`Erro do Supabase: ${error.message} (${error.code})`);
+          }
+        } else {
+          setErrorMsg(null);
+          setTimeSlots(data || []);
+          if (!data || data.length === 0) {
+            console.log('Nenhum registro encontrado, mas a conexão foi bem-sucedida');
+          }
+        }
+      } catch (err) {
+        console.error('Erro de rede ou configuração:', err);
+        setErrorMsg('Erro de conexão. Verifique sua internet e as configurações do Supabase.');
       }
     };
     fetchTimeSlots();
   }, []);
 
   const handleAddPlayer = useCallback(async (timeSlotId: string, playerName: string) => {
-    // Adiciona jogador localmente (pode ser adaptado para persistir no banco se necessário)
-    setTimeSlots(prevSlots => 
-      prevSlots.map(slot => {
-        if (slot.id === timeSlotId && slot.players.length < slot.maxPlayers) {
-          const newPlayer: Player = { id: Date.now().toString(), name: playerName };
-          return { ...slot, players: [...slot.players, newPlayer] };
-        }
-        return slot;
-      })
-    );
-  }, []);
+    // Primeiro atualiza o estado local
+    const slot = timeSlots.find(s => s.id === timeSlotId);
+    if (slot && slot.players.length < slot.max_players) {
+      const newPlayer: Player = { id: Date.now().toString(), name: playerName };
+      const updatedPlayers = [...slot.players, newPlayer];
+      
+      // Atualiza no Supabase
+      const { error } = await supabase.from('timeslots').update({ players: updatedPlayers }).eq('id', timeSlotId);
+      
+      if (!error) {
+        setTimeSlots(prevSlots => 
+          prevSlots.map(slot => 
+            slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+          )
+        );
+      }
+    }
+  }, [timeSlots]);
 
-  const handleRemovePlayer = useCallback((timeSlotId: string, playerId: string) => {
-    setTimeSlots(prevSlots => 
-      prevSlots.map(slot => {
-        if (slot.id === timeSlotId) {
-          const updatedPlayers = slot.players.filter(player => player.id !== playerId);
-          return { ...slot, players: updatedPlayers };
-        }
-        return slot;
-      })
-    );
-  }, []);
+  const handleRemovePlayer = useCallback(async (timeSlotId: string, playerId: string) => {
+    const slot = timeSlots.find(s => s.id === timeSlotId);
+    if (slot) {
+      const updatedPlayers = slot.players.filter(player => player.id !== playerId);
+      
+      // Atualiza no Supabase
+      const { error } = await supabase.from('timeslots').update({ players: updatedPlayers }).eq('id', timeSlotId);
+      
+      if (!error) {
+        setTimeSlots(prevSlots => 
+          prevSlots.map(slot => 
+            slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+          )
+        );
+      }
+    }
+  }, [timeSlots]);
 
   const handleCreateTimeSlot = useCallback(async (time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
     const { error } = await supabase.from('timeslots').insert([{ 
       time, 
-      listname: listName, 
-      maxplayers: maxPlayers, 
-      dayofweek: dayOfWeek,
+      list_name: listName, 
+      max_players: maxPlayers, 
+      day_of_week: dayOfWeek,
       players: []
     }]);
     if (!error) {
@@ -77,16 +102,19 @@ const App: React.FC = () => {
     setTimeSlots(data || []);
   }, []);
 
-  const handleUpdateListName = useCallback((timeSlotId: string, newName: string) => {
-    setTimeSlots(prevSlots => 
-      prevSlots.map(slot => 
-        slot.id === timeSlotId ? { ...slot, listName: newName } : slot
-      )
-    );
+  const handleUpdateListName = useCallback(async (timeSlotId: string, newName: string) => {
+    const { error } = await supabase.from('timeslots').update({ list_name: newName }).eq('id', timeSlotId);
+    if (!error) {
+      setTimeSlots(prevSlots => 
+        prevSlots.map(slot => 
+          slot.id === timeSlotId ? { ...slot, list_name: newName } : slot
+        )
+      );
+    }
   }, []);
 
   const groupedSlots = timeSlots.reduce((acc, slot) => {
-    const day = slot.dayofweek;
+    const day = slot.day_of_week;
     if (!acc[day]) {
       acc[day] = [];
     }

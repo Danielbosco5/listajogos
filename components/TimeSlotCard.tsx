@@ -18,7 +18,7 @@ const PLAYERS_TO_SHOW_COLLAPSED = 3;
 const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRemovePlayer, onRemoveTimeSlot, onUpdateListName }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
-  const [listName, setListName] = useState(timeSlot.listname || '');
+  const [listName, setListName] = useState(timeSlot.list_name || '');
   const [isPlayerListExpanded, setIsPlayerListExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -28,8 +28,8 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
     }
   }, [isEditingName]);
 
-  const isFull = timeSlot.players.length >= timeSlot.maxplayers;
-  const spotsLeft = timeSlot.maxPlayers - timeSlot.players.length;
+  const isFull = timeSlot.players.length >= timeSlot.max_players;
+  const spotsLeft = timeSlot.max_players - timeSlot.players.length;
 
   const handleAddPlayerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +48,7 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
     if (e.key === 'Enter') {
       handleListNameBlur();
     } else if (e.key === 'Escape') {
-      setListName(timeSlot.listName || '');
+      setListName(timeSlot.list_name || '');
       setIsEditingName(false);
     }
   };
@@ -108,7 +108,7 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
       <div className="flex justify-end items-center -mt-8 mb-4">
         <div className="flex items-center gap-2 text-slate-300 bg-slate-700 px-3 py-1 rounded-full text-sm font-medium">
           <UsersIcon className="w-4 h-4" />
-          <span>{timeSlot.players.length} / {timeSlot.maxPlayers}</span>
+          <span>{timeSlot.players.length} / {timeSlot.max_players}</span>
         </div>
       </div>
 
