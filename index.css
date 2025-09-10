@@ -1,0 +1,17 @@
+/* index.css - arquivo base para estilos globais do projeto */
+body {
+  margin: 0;
+  padding: 0;
+  background: #0f172a;
+  color: #fff;
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+/* Exemplo de classe para containers principais */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Adicione outros estilos globais conforme necessário */
