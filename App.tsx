@@ -16,16 +16,13 @@ declare global {
   }
 }
 
-if (!import.meta.env.VITE_SUPABASE_URL) {
-  throw new Error('VITE_SUPABASE_URL is required');
-}
+// Tente obter as variáveis de ambiente de várias fontes possíveis
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://xuvmolypqreekoetjked.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1dm1vbHlwcXJlZWtvZXRqa2VkIiwicm9zZSI6ImFub24iLCJpYXQiOjE3NTc1Mjc0NDEsImV4cCI6MjA3MzEwMzQ0MX0.rONiTJsWdaLdqQPeBT0NYNKNbb3BkReCXblYgr68dGs';
 
-if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  throw new Error('VITE_SUPABASE_ANON_KEY is required');
-}
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase Key:', supabaseAnonKey ? '[REDACTED]' : 'Missing');
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const App: React.FC = () => {
