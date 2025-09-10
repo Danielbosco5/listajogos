@@ -1,0 +1,5 @@
+{
+  "name": "Jogos Disponíveis SEDUC GO",
+  "description": "Um sistema inteligente para agendar horários de jogos no ginásio da SEDUC. Usuários podem adicionar seus nomes às listas de horários disponíveis e visualizar os agendamentos de forma clara e moderna.",
+  "requestFramePermissions": []
+}
