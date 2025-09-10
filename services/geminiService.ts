@@ -1,19 +1,6 @@
-
-import { GoogleGenAI } from "@google/genai";
-
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  console.warn("Gemini API key not found in environment variables. The intelligent features will be disabled.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+// Arquivo pode ser removido se não for mais usado
 
 export const generateFairPlayMessage = async (playerNames: string[]): Promise<string> => {
-  if (!API_KEY) {
-    return "A funcionalidade inteligente está desativada. Por favor, configure a chave da API.";
-  }
-  
   if (playerNames.length < 2) {
     return "Adicione pelo menos dois jogadores para gerar uma mensagem de fair play.";
   }

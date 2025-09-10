@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { TimeSlot } from '../types';
-import { generateFairPlayMessage } from '../services/geminiService';
 import UsersIcon from './icons/UsersIcon';
 import SparklesIcon from './icons/SparklesIcon';
 import TrashIcon from './icons/TrashIcon';
@@ -18,8 +17,6 @@ const PLAYERS_TO_SHOW_COLLAPSED = 3;
 
 const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRemovePlayer, onRemoveTimeSlot, onUpdateListName }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
-  const [fairPlayMessage, setFairPlayMessage] = useState<string | null>(null);
-  const [isLoadingMessage, setIsLoadingMessage] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [listName, setListName] = useState(timeSlot.listName || '');
   const [isPlayerListExpanded, setIsPlayerListExpanded] = useState(false);
@@ -42,15 +39,6 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
     }
   };
   
-  const handleGenerateMessage = async () => {
-    setIsLoadingMessage(true);
-    setFairPlayMessage(null);
-    const playerNames = timeSlot.players.map(p => p.name);
-    const message = await generateFairPlayMessage(playerNames);
-    setFairPlayMessage(message);
-    setIsLoadingMessage(false);
-  };
-
   const handleListNameBlur = () => {
     setIsEditingName(false);
     onUpdateListName(listName);
@@ -158,23 +146,6 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
           <p className="text-slate-400 text-center pt-8">Nenhum jogador na lista. Seja o primeiro!</p>
         )}
       </div>
-
-      {fairPlayMessage && (
-        <div className="mb-4 p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
-          <p className="text-sm text-teal-300">{fairPlayMessage}</p>
-        </div>
-      )}
-
-      {timeSlot.players.length >= 2 && (
-        <button
-            onClick={handleGenerateMessage}
-            disabled={isLoadingMessage}
-            className="w-full flex items-center justify-center gap-2 mb-4 px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-500 transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed"
-        >
-            <SparklesIcon className="w-5 h-5" />
-            {isLoadingMessage ? 'Gerando...' : 'Mensagem de Fair Play'}
-        </button>
-      )}
 
       <form onSubmit={handleAddPlayerSubmit} className="mt-auto">
         <div className="flex gap-2">
