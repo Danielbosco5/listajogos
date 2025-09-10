@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import Header from './components/Header';
 import ScheduleView from './components/ScheduleView';
 import AddTimeSlotForm from './components/AddTimeSlotForm';
@@ -6,16 +7,28 @@ import type { Player, TimeSlot } from './types';
 import Modal from './components/Modal';
 import PlusIcon from './components/icons/PlusIcon';
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 const App: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isAddingSlot, setIsAddingSlot] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Carrega as listas do banco ao iniciar
   useEffect(() => {
     const fetchTimeSlots = async () => {
-      const res = await fetch('/api/timeslots');
-      const data = await res.json();
-      setTimeSlots(data);
+      const { data, error } = await supabase.from('timeslots').select('*');
+      console.log('Supabase data:', data, 'Error:', error);
+      if (error) {
+        setErrorMsg('Erro ao conectar ao banco Supabase. Verifique as variáveis de ambiente e a tabela.');
+      } else if (!data || data.length === 0) {
+        setErrorMsg('Nenhuma lista encontrada. Crie uma nova lista para começar.');
+      } else {
+        setErrorMsg(null);
+        setTimeSlots(data);
+      }
     };
     fetchTimeSlots();
   }, []);
@@ -46,29 +59,18 @@ const App: React.FC = () => {
   }, []);
 
   const handleCreateTimeSlot = useCallback(async (time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
-    const novoHorario = { time, listName, maxPlayers, dayOfWeek };
-    await fetch('/api/timeslots', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(novoHorario),
-    });
-    // Atualiza as listas após criar
-    const res = await fetch('/api/timeslots');
-    const data = await res.json();
-    setTimeSlots(data);
-    setIsAddingSlot(false);
+    const { error } = await supabase.from('timeslots').insert([{ time, listName, maxPlayers, dayOfWeek }]);
+    if (!error) {
+      const { data } = await supabase.from('timeslots').select('*');
+      setTimeSlots(data || []);
+      setIsAddingSlot(false);
+    }
   }, []);
 
   const handleRemoveTimeSlot = useCallback(async (timeSlotId: string) => {
-    await fetch('/api/timeslots', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: timeSlotId }),
-    });
-    // Atualiza as listas após excluir
-    const res = await fetch('/api/timeslots');
-    const data = await res.json();
-    setTimeSlots(data);
+    await supabase.from('timeslots').delete().eq('id', timeSlotId);
+    const { data } = await supabase.from('timeslots').select('*');
+    setTimeSlots(data || []);
   }, []);
 
   const handleUpdateListName = useCallback((timeSlotId: string, newName: string) => {
@@ -99,7 +101,12 @@ const App: React.FC = () => {
       <div className="container mx-auto px-4 py-8">
         <Header />
         <main className="mt-8">
-          {timeSlots.length > 0 ? (
+          {errorMsg ? (
+            <div className="text-center text-red-400 mt-8 py-16 bg-slate-800/50 rounded-lg border-2 border-dashed border-red-700">
+              <h3 className="text-xl font-semibold">{errorMsg}</h3>
+              <p className="mt-2">Verifique o console do navegador para detalhes.</p>
+            </div>
+          ) : timeSlots.length > 0 ? (
             <div className="space-y-12">
               {sortedDays.map(day => (
                 <section key={day} aria-labelledby={`day-heading-${day}`}>
