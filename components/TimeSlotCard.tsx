@@ -18,7 +18,7 @@ const PLAYERS_TO_SHOW_COLLAPSED = 3;
 const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRemovePlayer, onRemoveTimeSlot, onUpdateListName }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
-  const [listName, setListName] = useState(timeSlot.listName || '');
+  const [listName, setListName] = useState(timeSlot.listname || '');
   const [isPlayerListExpanded, setIsPlayerListExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -28,7 +28,7 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
     }
   }, [isEditingName]);
 
-  const isFull = timeSlot.players.length >= timeSlot.maxPlayers;
+  const isFull = timeSlot.players.length >= timeSlot.maxplayers;
   const spotsLeft = timeSlot.maxPlayers - timeSlot.players.length;
 
   const handleAddPlayerSubmit = (e: React.FormEvent) => {

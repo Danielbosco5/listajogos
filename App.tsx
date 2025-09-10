@@ -1,22 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import Header from './components/Header';
 import ScheduleView from './components/ScheduleView';
 import AddTimeSlotForm from './components/AddTimeSlotForm';
 import type { Player, TimeSlot } from './types';
 import Modal from './components/Modal';
 import PlusIcon from './components/icons/PlusIcon';
-
-declare global {
-  const __SUPABASE_URL__: string;
-  const __SUPABASE_ANON_KEY__: string;
-}
-
-const supabaseUrl = __SUPABASE_URL__;
-const supabaseAnonKey = __SUPABASE_ANON_KEY__;
-
-console.log('Supabase URL:', supabaseUrl);
-console.log('Supabase Key:', supabaseAnonKey ? '[REDACTED]' : 'Missing');
+import { supabase, type TimeSlotTable } from './lib/supabase';
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -68,7 +57,13 @@ const App: React.FC = () => {
   }, []);
 
   const handleCreateTimeSlot = useCallback(async (time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
-    const { error } = await supabase.from('timeslots').insert([{ time, listName, maxPlayers, dayOfWeek }]);
+    const { error } = await supabase.from('timeslots').insert([{ 
+      time, 
+      listname: listName, 
+      maxplayers: maxPlayers, 
+      dayofweek: dayOfWeek,
+      players: []
+    }]);
     if (!error) {
       const { data } = await supabase.from('timeslots').select('*');
       setTimeSlots(data || []);
@@ -91,7 +86,7 @@ const App: React.FC = () => {
   }, []);
 
   const groupedSlots = timeSlots.reduce((acc, slot) => {
-    const day = slot.dayOfWeek;
+    const day = slot.dayofweek;
     if (!acc[day]) {
       acc[day] = [];
     }
