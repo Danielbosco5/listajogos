@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import ScheduleView from './components/ScheduleView';
 import AddTimeSlotForm from './components/AddTimeSlotForm';
@@ -11,7 +10,18 @@ const App: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isAddingSlot, setIsAddingSlot] = useState(false);
 
-  const handleAddPlayer = useCallback((timeSlotId: string, playerName: string) => {
+  // Carrega as listas do banco ao iniciar
+  useEffect(() => {
+    const fetchTimeSlots = async () => {
+      const res = await fetch('/api/timeslots');
+      const data = await res.json();
+      setTimeSlots(data);
+    };
+    fetchTimeSlots();
+  }, []);
+
+  const handleAddPlayer = useCallback(async (timeSlotId: string, playerName: string) => {
+    // Adiciona jogador localmente (pode ser adaptado para persistir no banco se necessário)
     setTimeSlots(prevSlots => 
       prevSlots.map(slot => {
         if (slot.id === timeSlotId && slot.players.length < slot.maxPlayers) {
@@ -35,21 +45,30 @@ const App: React.FC = () => {
     );
   }, []);
 
-  const handleCreateTimeSlot = useCallback((time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
-    const newTimeSlot: TimeSlot = {
-      id: Date.now().toString(),
-      time,
-      listName,
-      maxPlayers,
-      dayOfWeek,
-      players: [],
-    };
-    setTimeSlots(prevSlots => [...prevSlots, newTimeSlot]);
+  const handleCreateTimeSlot = useCallback(async (time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
+    const novoHorario = { time, listName, maxPlayers, dayOfWeek };
+    await fetch('/api/timeslots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoHorario),
+    });
+    // Atualiza as listas após criar
+    const res = await fetch('/api/timeslots');
+    const data = await res.json();
+    setTimeSlots(data);
     setIsAddingSlot(false);
   }, []);
 
-  const handleRemoveTimeSlot = useCallback((timeSlotId: string) => {
-    setTimeSlots(prevSlots => prevSlots.filter(slot => slot.id !== timeSlotId));
+  const handleRemoveTimeSlot = useCallback(async (timeSlotId: string) => {
+    await fetch('/api/timeslots', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: timeSlotId }),
+    });
+    // Atualiza as listas após excluir
+    const res = await fetch('/api/timeslots');
+    const data = await res.json();
+    setTimeSlots(data);
   }, []);
 
   const handleUpdateListName = useCallback((timeSlotId: string, newName: string) => {
