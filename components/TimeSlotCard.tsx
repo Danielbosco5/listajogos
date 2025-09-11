@@ -13,13 +13,10 @@ interface TimeSlotCardProps {
   onUpdateListName: (newName: string) => void;
 }
 
-const PLAYERS_TO_SHOW_COLLAPSED = 3;
-
 const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRemovePlayer, onRemoveTimeSlot, onUpdateListName }) => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [listName, setListName] = useState(timeSlot.listname || '');
-  const [isPlayerListExpanded, setIsPlayerListExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -64,11 +61,7 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
     }
   };
 
-  const visiblePlayers = isPlayerListExpanded 
-    ? timeSlot.players 
-    : timeSlot.players.slice(0, PLAYERS_TO_SHOW_COLLAPSED);
-  
-  const hasMorePlayers = timeSlot.players.length > PLAYERS_TO_SHOW_COLLAPSED;
+  const visiblePlayers = timeSlot.players;
 
   return (
     <div className="relative bg-slate-800 border border-slate-700 rounded-xl shadow-lg p-6 flex flex-col h-full transition-all duration-300 hover:border-teal-500 hover:shadow-teal-500/10 group/card">
@@ -131,16 +124,6 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
                 </li>
               ))}
             </ol>
-            {hasMorePlayers && (
-              <button
-                onClick={() => setIsPlayerListExpanded(!isPlayerListExpanded)}
-                className="text-teal-400 text-sm font-semibold mt-2 hover:underline focus:outline-none"
-              >
-                {isPlayerListExpanded 
-                  ? 'Mostrar menos' 
-                  : `Mostrar mais ${timeSlot.players.length - PLAYERS_TO_SHOW_COLLAPSED} jogadores...`}
-              </button>
-            )}
           </>
         ) : (
           <p className="text-slate-400 text-center pt-8">Nenhum jogador na lista. Seja o primeiro!</p>

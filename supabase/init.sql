@@ -2,9 +2,9 @@
 CREATE TABLE timeslots (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   time TEXT NOT NULL,
-  list_name TEXT,
-  day_of_week TEXT NOT NULL,
-  max_players INTEGER NOT NULL DEFAULT 10,
+  listname TEXT,
+  dayofweek TEXT NOT NULL,
+  maxplayers INTEGER NOT NULL DEFAULT 10,
   players JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
