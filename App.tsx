@@ -29,6 +29,9 @@ const App: React.FC = () => {
     onConfirmAction: undefined
   });
 
+  // Estado para controlar se o banco suporta waiting_list
+  const [supportsWaitingList, setSupportsWaitingList] = useState(false);
+
   // Carrega as listas do banco ao iniciar
   useEffect(() => {
     const fetchTimeSlots = async () => {
@@ -55,6 +58,18 @@ const App: React.FC = () => {
         } else {
           setIsOfflineMode(false);
           setErrorMsg(null);
+          
+          // Verificar se o banco suporta waiting_list
+          const hasWaitingListSupport = data && data.length > 0 && 
+            data[0].hasOwnProperty('waiting_list');
+          setSupportsWaitingList(hasWaitingListSupport);
+          
+          if (hasWaitingListSupport) {
+            console.log('✅ Banco suporta lista de espera');
+          } else {
+            console.log('⚠️ Banco não suporta lista de espera - usando apenas localStorage para essa funcionalidade');
+          }
+          
           // Mapear waiting_list para waitingList
           const mappedData = (data || []).map(slot => ({
             ...slot,
@@ -104,6 +119,11 @@ const App: React.FC = () => {
           ...slot,
           waitingList: [...currentWaitingList, newPlayer]
         };
+        
+        // Avisa se a lista de espera não será persistida
+        if (!isOfflineMode && !supportsWaitingList) {
+          alert('⚠️ Jogador adicionado à lista de espera LOCALMENTE. Para persistir no banco, execute o script SQL no dashboard do Supabase (veja INSTRUCOES_SUPABASE.sql)');
+        }
       }
       
       if (isOfflineMode) {
@@ -118,6 +138,11 @@ const App: React.FC = () => {
       
       // Atualiza no Supabase
       const updateData: any = { players: updatedSlot.players };
+      
+      // Inclui waiting_list se o banco suportar
+      if (supportsWaitingList && updatedSlot.waitingList) {
+        updateData.waiting_list = updatedSlot.waitingList;
+      }
       
       const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);
       
@@ -137,7 +162,7 @@ const App: React.FC = () => {
         localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
       }
     }
-  }, [timeSlots, isOfflineMode]);
+  }, [timeSlots, isOfflineMode, supportsWaitingList]);
 
   const handleRemovePlayer = useCallback(async (timeSlotId: string, playerId: string) => {
     const slot = timeSlots.find(s => s.id === timeSlotId);
@@ -226,6 +251,11 @@ const App: React.FC = () => {
           players: updatedSlot.players
         };
         
+        // Inclui waiting_list se o banco suportar
+        if (supportsWaitingList && updatedSlot.waitingList) {
+          updateData.waiting_list = updatedSlot.waitingList;
+        }
+        
         const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);          if (!error) {
             setTimeSlots(prevSlots => 
               prevSlots.map(s => 
@@ -301,6 +331,11 @@ const App: React.FC = () => {
         players: []
       };
       
+      // Inclui waiting_list se o banco suportar
+      if (supportsWaitingList) {
+        insertData.waiting_list = [];
+      }
+      
       const { data, error } = await supabase.from('timeslots').insert([insertData]).select();
       
       if (error) {
@@ -349,7 +384,7 @@ const App: React.FC = () => {
       localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
       setIsAddingSlot(false);
     }
-  }, [isOfflineMode, timeSlots]);
+  }, [isOfflineMode, timeSlots, supportsWaitingList]);
 
   const handleDeleteTimeSlotRequest = useCallback((timeSlotId: string) => {
     const slot = timeSlots.find(s => s.id === timeSlotId);
@@ -393,7 +428,7 @@ const App: React.FC = () => {
       setTimeSlots(updatedSlots);
       localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
     }
-  }, [isOfflineMode, timeSlots]);
+  }, [timeSlots]);
 
   const handleUpdateListName = useCallback(async (timeSlotId: string, newName: string) => {
     if (isOfflineMode) {
@@ -422,7 +457,7 @@ const App: React.FC = () => {
       setTimeSlots(updatedSlots);
       localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
     }
-  }, [isOfflineMode, timeSlots]);
+  }, [timeSlots]);
 
   const groupedSlots = timeSlots.reduce((acc, slot) => {
     const day = slot.dayofweek;
