@@ -30,7 +30,7 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
 
   const handleAddPlayerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPlayerName.trim() && !isFull) {
+    if (newPlayerName.trim()) {
       onAddPlayer(newPlayerName.trim());
       setNewPlayerName('');
     }
@@ -108,7 +108,8 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
       <div className="flex-grow mb-4 min-h-[100px]">
         {timeSlot.players.length > 0 ? (
           <>
-            <ol className="list-decimal list-inside space-y-1 text-slate-300">
+            <h5 className="text-sm font-semibold text-teal-400 mb-2">🏆 Lista Principal</h5>
+            <ol className="list-decimal list-inside space-y-1 text-slate-300 mb-4">
               {visiblePlayers.map((player) => (
                 <li key={player.id} className="group/player flex justify-between items-center rounded-md hover:bg-slate-700/50 pr-2">
                   <span className="truncate py-1 pl-2">{player.name}</span>
@@ -128,6 +129,29 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
         ) : (
           <p className="text-slate-400 text-center pt-8">Nenhum jogador na lista. Seja o primeiro!</p>
         )}
+        
+        {/* Lista de Espera */}
+        {timeSlot.waitingList && timeSlot.waitingList.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-600">
+            <h5 className="text-sm font-semibold text-amber-400 mb-2">⏳ Lista de Espera</h5>
+            <ol className="list-decimal list-inside space-y-1 text-slate-300">
+              {timeSlot.waitingList.map((player, index) => (
+                <li key={player.id} className="group/player flex justify-between items-center rounded-md hover:bg-slate-700/50 pr-2">
+                  <span className="truncate py-1 pl-2">{player.name}</span>
+                  <button
+                      onClick={() => onRemovePlayer(player.id)}
+                      className="ml-2 text-slate-500 hover:text-red-400 opacity-0 group-hover/player:opacity-100 transition-opacity"
+                      aria-label={`Remover ${player.name} da lista de espera`}
+                  >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleAddPlayerSubmit} className="mt-auto">
@@ -136,21 +160,27 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
             type="text"
             value={newPlayerName}
             onChange={(e) => setNewPlayerName(e.target.value)}
-            placeholder={isFull ? "Horário Lotado" : "Seu nome"}
-            disabled={isFull}
-            className="flex-grow bg-slate-900 border border-slate-600 text-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
+            placeholder={isFull ? "Entrar na lista de espera" : "Seu nome"}
+            className="flex-grow bg-slate-900 border border-slate-600 text-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
           <button
             type="submit"
-            disabled={isFull || !newPlayerName.trim()}
+            disabled={!newPlayerName.trim()}
             className="px-4 py-2 bg-teal-500 text-white font-semibold rounded-md hover:bg-teal-400 transition-colors duration-200 disabled:bg-slate-600 disabled:cursor-not-allowed"
           >
-            Adicionar
+            {isFull ? "Lista de Espera" : "Adicionar"}
           </button>
         </div>
-        <p className={`text-xs mt-2 text-right font-medium ${spotsLeft > 3 ? 'text-slate-400' : 'text-amber-400'}`}>
-          {spotsLeft > 0 ? `${spotsLeft} vagas restantes` : 'Nenhuma vaga restante'}
-        </p>
+        <div className="text-xs mt-2 text-right font-medium space-y-1">
+          <p className={spotsLeft > 3 ? 'text-slate-400' : 'text-amber-400'}>
+            {spotsLeft > 0 ? `${spotsLeft} vagas restantes` : 'Lista principal lotada'}
+          </p>
+          {timeSlot.waitingList && timeSlot.waitingList.length > 0 && (
+            <p className="text-amber-400">
+              {timeSlot.waitingList.length} pessoa(s) na lista de espera
+            </p>
+          )}
+        </div>
       </form>
     </div>
   );

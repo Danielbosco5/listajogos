@@ -1,6 +1,7 @@
 export interface Player {
   id: string;
   name: string;
+  addedAt?: string; // Para controlar ordem na lista de espera
 }
 
 export interface TimeSlot {
@@ -9,6 +10,7 @@ export interface TimeSlot {
   listname?: string;
   dayofweek: string;
   players: Player[];
+  waitingList?: Player[]; // Nova lista de espera
   maxplayers: number;
   created_at?: string;
 }

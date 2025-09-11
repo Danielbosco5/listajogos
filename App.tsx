@@ -4,6 +4,7 @@ import ScheduleView from './components/ScheduleView';
 import AddTimeSlotForm from './components/AddTimeSlotForm';
 import type { Player, TimeSlot } from './types';
 import Modal from './components/Modal';
+import PasswordModal from './components/PasswordModal';
 import PlusIcon from './components/icons/PlusIcon';
 import { supabase } from './lib/supabase';
 
@@ -12,6 +13,17 @@ const App: React.FC = () => {
   const [isAddingSlot, setIsAddingSlot] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [passwordModal, setPasswordModal] = useState<{
+    isOpen: boolean;
+    timeSlotId: string;
+    playerId: string;
+    playerName: string;
+  }>({
+    isOpen: false,
+    timeSlotId: '',
+    playerId: '',
+    playerName: ''
+  });
 
   // Carrega as listas do banco ao iniciar
   useEffect(() => {
@@ -39,7 +51,12 @@ const App: React.FC = () => {
         } else {
           setIsOfflineMode(false);
           setErrorMsg(null);
-          setTimeSlots(data || []);
+          // Mapear waiting_list para waitingList
+          const mappedData = (data || []).map(slot => ({
+            ...slot,
+            waitingList: slot.waiting_list || []
+          }));
+          setTimeSlots(mappedData);
           if (!data || data.length === 0) {
             console.log('Nenhum registro encontrado, mas a conexão foi bem-sucedida');
           }
@@ -61,14 +78,34 @@ const App: React.FC = () => {
 
   const handleAddPlayer = useCallback(async (timeSlotId: string, playerName: string) => {
     const slot = timeSlots.find(s => s.id === timeSlotId);
-    if (slot && slot.players.length < slot.maxplayers) {
-      const newPlayer: Player = { id: Date.now().toString(), name: playerName };
-      const updatedPlayers = [...slot.players, newPlayer];
+    if (slot) {
+      const newPlayer: Player = { 
+        id: Date.now().toString(), 
+        name: playerName,
+        addedAt: new Date().toISOString()
+      };
+      
+      let updatedSlot;
+      
+      if (slot.players.length < slot.maxplayers) {
+        // Adiciona à lista principal
+        updatedSlot = {
+          ...slot,
+          players: [...slot.players, newPlayer]
+        };
+      } else {
+        // Adiciona à lista de espera
+        const currentWaitingList = slot.waitingList || [];
+        updatedSlot = {
+          ...slot,
+          waitingList: [...currentWaitingList, newPlayer]
+        };
+      }
       
       if (isOfflineMode) {
         // Modo offline
-        const updatedSlots = timeSlots.map(slot => 
-          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        const updatedSlots = timeSlots.map(s => 
+          s.id === timeSlotId ? updatedSlot : s
         );
         setTimeSlots(updatedSlots);
         localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
@@ -76,19 +113,24 @@ const App: React.FC = () => {
       }
       
       // Atualiza no Supabase
-      const { error } = await supabase.from('timeslots').update({ players: updatedPlayers }).eq('id', timeSlotId);
+      const updateData: any = { players: updatedSlot.players };
+      if (updatedSlot.waitingList) {
+        updateData.waiting_list = updatedSlot.waitingList;
+      }
+      
+      const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);
       
       if (!error) {
         setTimeSlots(prevSlots => 
-          prevSlots.map(slot => 
-            slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+          prevSlots.map(s => 
+            s.id === timeSlotId ? updatedSlot : s
           )
         );
       } else {
         console.error('Erro ao adicionar jogador:', error);
         // Fallback para modo offline
-        const updatedSlots = timeSlots.map(slot => 
-          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        const updatedSlots = timeSlots.map(s => 
+          s.id === timeSlotId ? updatedSlot : s
         );
         setTimeSlots(updatedSlots);
         localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
@@ -99,38 +141,113 @@ const App: React.FC = () => {
   const handleRemovePlayer = useCallback(async (timeSlotId: string, playerId: string) => {
     const slot = timeSlots.find(s => s.id === timeSlotId);
     if (slot) {
-      const updatedPlayers = slot.players.filter(player => player.id !== playerId);
+      const player = slot.players.find(p => p.id === playerId) || 
+                   (slot.waitingList || []).find(p => p.id === playerId);
       
-      if (isOfflineMode) {
-        // Modo offline
-        const updatedSlots = timeSlots.map(slot => 
-          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
-        );
-        setTimeSlots(updatedSlots);
-        localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+      if (player) {
+        setPasswordModal({
+          isOpen: true,
+          timeSlotId,
+          playerId,
+          playerName: player.name
+        });
+      }
+    }
+  }, [timeSlots]);
+
+  const handlePasswordConfirm = useCallback(async (password: string) => {
+    if (password !== '@Seduc2025') {
+      alert('Senha incorreta. Remoção não permitida.');
+      setPasswordModal(prev => ({ ...prev, isOpen: false }));
+      return;
+    }
+
+    const { timeSlotId, playerId } = passwordModal;
+    const slot = timeSlots.find(s => s.id === timeSlotId);
+    
+    if (slot) {
+      // Verifica se o jogador está na lista principal ou na lista de espera
+      const isInMainList = slot.players.some(player => player.id === playerId);
+      const isInWaitingList = slot.waitingList?.some(player => player.id === playerId) || false;
+      
+      if (!isInMainList && !isInWaitingList) {
+        alert('Jogador não encontrado.');
+        setPasswordModal(prev => ({ ...prev, isOpen: false }));
         return;
       }
       
-      // Atualiza no Supabase
-      const { error } = await supabase.from('timeslots').update({ players: updatedPlayers }).eq('id', timeSlotId);
+      let updatedPlayers = slot.players;
+      let updatedWaitingList = slot.waitingList || [];
       
-      if (!error) {
-        setTimeSlots(prevSlots => 
-          prevSlots.map(slot => 
-            slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
-          )
-        );
+      if (isInMainList) {
+        // Remove da lista principal
+        updatedPlayers = slot.players.filter(player => player.id !== playerId);
+        
+        // Se há alguém na lista de espera, promove o primeiro
+        if (updatedWaitingList.length > 0) {
+          // Ordena por data de adição (mais antigo primeiro)
+          updatedWaitingList.sort((a, b) => {
+            const dateA = new Date(a.addedAt || 0).getTime();
+            const dateB = new Date(b.addedAt || 0).getTime();
+            return dateA - dateB;
+          });
+          
+          // Promove o primeiro da lista de espera
+          const promotedPlayer = updatedWaitingList[0];
+          updatedPlayers.push(promotedPlayer);
+          updatedWaitingList = updatedWaitingList.slice(1);
+        }
       } else {
-        console.error('Erro ao remover jogador:', error);
-        // Fallback para modo offline
-        const updatedSlots = timeSlots.map(slot => 
-          slot.id === timeSlotId ? { ...slot, players: updatedPlayers } : slot
+        // Remove da lista de espera
+        updatedWaitingList = updatedWaitingList.filter(player => player.id !== playerId);
+      }
+      
+      const updatedSlot = {
+        ...slot,
+        players: updatedPlayers,
+        waitingList: updatedWaitingList
+      };
+      
+      if (isOfflineMode) {
+        // Modo offline
+        const updatedSlots = timeSlots.map(s => 
+          s.id === timeSlotId ? updatedSlot : s
         );
         setTimeSlots(updatedSlots);
         localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+      } else {
+        // Atualiza no Supabase
+        const updateData: any = { 
+          players: updatedSlot.players,
+          waiting_list: updatedSlot.waitingList
+        };
+        
+        const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);
+        
+        if (!error) {
+          setTimeSlots(prevSlots => 
+            prevSlots.map(s => 
+              s.id === timeSlotId ? updatedSlot : s
+            )
+          );
+        } else {
+          console.error('Erro ao remover jogador:', error);
+          // Fallback para modo offline
+          const updatedSlots = timeSlots.map(s => 
+            s.id === timeSlotId ? updatedSlot : s
+          );
+          setTimeSlots(updatedSlots);
+          localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
+        }
       }
     }
-  }, [timeSlots, isOfflineMode]);
+    
+    setPasswordModal(prev => ({ ...prev, isOpen: false }));
+  }, [timeSlots, isOfflineMode, passwordModal]);
+
+  const handlePasswordCancel = useCallback(() => {
+    setPasswordModal(prev => ({ ...prev, isOpen: false }));
+  }, []);
 
   const handleCreateTimeSlot = useCallback(async (time: string, listName: string, maxPlayers: number, dayOfWeek: string) => {
     if (isOfflineMode) {
@@ -144,6 +261,7 @@ const App: React.FC = () => {
         maxplayers: maxPlayers,
         dayofweek: dayOfWeek,
         players: [],
+        waitingList: [],
         created_at: new Date().toISOString()
       };
       
@@ -163,7 +281,8 @@ const App: React.FC = () => {
         listname: listName, 
         maxplayers: maxPlayers, 
         dayofweek: dayOfWeek,
-        players: []
+        players: [],
+        waiting_list: []
       }]).select();
       
       if (error) {
@@ -180,7 +299,12 @@ const App: React.FC = () => {
         console.error('Erro ao recarregar dados:', fetchError);
         setErrorMsg(`Lista criada, mas erro ao recarregar: ${fetchError.message}`);
       } else {
-        setTimeSlots(allData || []);
+        // Mapear waiting_list para waitingList
+        const mappedData = (allData || []).map(slot => ({
+          ...slot,
+          waitingList: slot.waiting_list || []
+        }));
+        setTimeSlots(mappedData);
         setErrorMsg(null);
       }
       
@@ -198,6 +322,7 @@ const App: React.FC = () => {
         maxplayers: maxPlayers,
         dayofweek: dayOfWeek,
         players: [],
+        waitingList: [],
         created_at: new Date().toISOString()
       };
       
@@ -356,6 +481,16 @@ const App: React.FC = () => {
             onCancel={() => setIsAddingSlot(false)} 
           />
         </Modal>
+      )}
+
+      {passwordModal.isOpen && (
+        <PasswordModal
+          isOpen={passwordModal.isOpen}
+          title="Senha de Guardião"
+          message={`Digite a senha para remover ${passwordModal.playerName}:`}
+          onConfirm={handlePasswordConfirm}
+          onCancel={handlePasswordCancel}
+        />
       )}
     </div>
   );

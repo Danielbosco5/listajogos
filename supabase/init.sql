@@ -6,6 +6,7 @@ CREATE TABLE timeslots (
   dayofweek TEXT NOT NULL,
   maxplayers INTEGER NOT NULL DEFAULT 10,
   players JSONB DEFAULT '[]'::jsonb,
+  waiting_list JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 

@@ -17,6 +17,12 @@ export interface TimeSlotTable {
   players: {
     id: string;
     name: string;
+    addedAt?: string;
+  }[];
+  waiting_list?: {
+    id: string;
+    name: string;
+    addedAt?: string;
   }[];
   created_at?: string;
 }
