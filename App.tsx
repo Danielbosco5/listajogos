@@ -118,9 +118,6 @@ const App: React.FC = () => {
       
       // Atualiza no Supabase
       const updateData: any = { players: updatedSlot.players };
-      if (updatedSlot.waitingList) {
-        updateData.waiting_list = updatedSlot.waitingList;
-      }
       
       const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);
       
@@ -224,15 +221,12 @@ const App: React.FC = () => {
           setTimeSlots(updatedSlots);
           localStorage.setItem('timeSlots', JSON.stringify(updatedSlots));
         } else {
-          // Atualiza no Supabase
-          const updateData: any = { 
-            players: updatedSlot.players,
-            waiting_list: updatedSlot.waitingList
-          };
-          
-          const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);
-          
-          if (!error) {
+        // Atualiza no Supabase
+        const updateData: any = { 
+          players: updatedSlot.players
+        };
+        
+        const { error } = await supabase.from('timeslots').update(updateData).eq('id', timeSlotId);          if (!error) {
             setTimeSlots(prevSlots => 
               prevSlots.map(s => 
                 s.id === timeSlotId ? updatedSlot : s
@@ -299,14 +293,15 @@ const App: React.FC = () => {
     try {
       console.log('Criando lista com dados:', { time, listName, maxPlayers, dayOfWeek });
       
-      const { data, error } = await supabase.from('timeslots').insert([{ 
+      const insertData: any = { 
         time, 
         listname: listName, 
         maxplayers: maxPlayers, 
         dayofweek: dayOfWeek,
-        players: [],
-        waiting_list: []
-      }]).select();
+        players: []
+      };
+      
+      const { data, error } = await supabase.from('timeslots').insert([insertData]).select();
       
       if (error) {
         console.error('Erro ao criar lista:', error);
