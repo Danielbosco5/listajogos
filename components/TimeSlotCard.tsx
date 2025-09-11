@@ -51,11 +51,6 @@ const TimeSlotCard: React.FC<TimeSlotCardProps> = ({ timeSlot, onAddPlayer, onRe
   };
 
   const handleRemoveClick = () => {
-    const senha = window.prompt('Digite a senha de guardião para excluir:');
-    if (senha !== '@Seduc2025') {
-      window.alert('Senha incorreta. Exclusão não permitida.');
-      return;
-    }
     if (window.confirm(`Tem certeza que deseja remover o horário "${timeSlot.time}"? Esta ação não pode ser desfeita.`)) {
       onRemoveTimeSlot();
     }

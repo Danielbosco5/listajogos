@@ -24,11 +24,6 @@ const AddTimeSlotForm: React.FC<AddTimeSlotFormProps> = ({ onAdd, onCancel }) =>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const senha = window.prompt('Digite a senha de guardião para criar uma nova lista:');
-    if (senha !== '@Seduc2025') {
-      window.alert('Senha incorreta. Criação não permitida.');
-      return;
-    }
     if (time.trim() && dayOfWeek) {
       onAdd(time.trim(), listName.trim(), maxPlayers, dayOfWeek);
       setTime('');
